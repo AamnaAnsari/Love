@@ -18,72 +18,93 @@ class Paper {
   rotating = false;
 
   init(paper) {
-    paper.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      if(!this.rotating) {
-        this.touchMoveX = e.touches[0].clientX;
-        this.touchMoveY = e.touches[0].clientY;
+    const handleMove = (x, y) => {
+      const dirX = x - this.touchStartX;
+      const dirY = y - this.touchStartY;
+
+      if (this.rotating) {
         
-        this.velX = this.touchMoveX - this.prevTouchX;
-        this.velY = this.touchMoveY - this.prevTouchY;
-      }
-        
-      const dirX = e.touches[0].clientX - this.touchStartX;
-      const dirY = e.touches[0].clientY - this.touchStartY;
-      const dirLength = Math.sqrt(dirX*dirX+dirY*dirY);
-      const dirNormalizedX = dirX / dirLength;
-      const dirNormalizedY = dirY / dirLength;
-
-      const angle = Math.atan2(dirNormalizedY, dirNormalizedX);
-      let degrees = 180 * angle / Math.PI;
-      degrees = (360 + Math.round(degrees)) % 360;
-      if(this.rotating) {
-        this.rotation = degrees;
+        const angle = Math.atan2(dirY, dirX);
+        this.rotation = (360 + Math.round((180 * angle) / Math.PI)) % 360;
+      } else {
+        // Drag logic
+        this.velX = x - this.prevTouchX;
+        this.velY = y - this.prevTouchY;
+        this.currentPaperX += this.velX;
+        this.currentPaperY += this.velY;
       }
 
-      if(this.holdingPaper) {
-        if(!this.rotating) {
-          this.currentPaperX += this.velX;
-          this.currentPaperY += this.velY;
-        }
-        this.prevTouchX = this.touchMoveX;
-        this.prevTouchY = this.touchMoveY;
+      this.prevTouchX = x;
+      this.prevTouchY = y;
 
-        paper.style.transform = `translateX(${this.currentPaperX}px) translateY(${this.currentPaperY}px) rotateZ(${this.rotation}deg)`;
-      }
-    })
+      paper.style.transform = `translate(${this.currentPaperX}px, ${this.currentPaperY}px) rotate(${this.rotation}deg)`;
+    };
 
-    paper.addEventListener('touchstart', (e) => {
-      if(this.holdingPaper) return; 
+    const handleStart = (x, y) => {
       this.holdingPaper = true;
-      
-      paper.style.zIndex = highestZ;
-      highestZ += 1;
-      
-      this.touchStartX = e.touches[0].clientX;
-      this.touchStartY = e.touches[0].clientY;
-      this.prevTouchX = this.touchStartX;
-      this.prevTouchY = this.touchStartY;
-    });
-    paper.addEventListener('touchend', () => {
+      paper.style.zIndex = ++highestZ;
+
+      this.touchStartX = x;
+      this.touchStartY = y;
+      this.prevTouchX = x;
+      this.prevTouchY = y;
+    };
+
+    const handleEnd = () => {
       this.holdingPaper = false;
       this.rotating = false;
-    });
+    };
 
-    // For two-finger rotation on touch screens
-    paper.addEventListener('gesturestart', (e) => {
+    paper.addEventListener("mousedown", (e) => handleStart(e.clientX, e.clientY));
+    document.addEventListener("mousemove", (e) => {
+      if (this.holdingPaper) handleMove(e.clientX, e.clientY);
+    });
+    window.addEventListener("mouseup", handleEnd);
+
+    // Touch events for mobile
+    paper.addEventListener("touchstart", (e) => {
+      const touch = e.touches[0];
+      handleStart(touch.clientX, touch.clientY);
+    });
+    paper.addEventListener("touchmove", (e) => {
+      e.preventDefault(); 
+      const touch = e.touches[0];
+      if (this.holdingPaper) handleMove(touch.clientX, touch.clientY);
+    });
+    paper.addEventListener("touchend", handleEnd);
+
+   
+    paper.addEventListener("gesturestart", (e) => {
       e.preventDefault();
       this.rotating = true;
     });
-    paper.addEventListener('gestureend', () => {
-      this.rotating = false;
-    });
+    paper.addEventListener("gestureend", handleEnd);
   }
 }
 
-const papers = Array.from(document.querySelectorAll('.paper'));
-
-papers.forEach(paper => {
+// Apply to all elements with the "paper" class
+const papers = Array.from(document.querySelectorAll(".paper"));
+papers.forEach((paper) => {
   const p = new Paper();
   p.init(paper);
 });
+
+// Responsive ///
+const style = document.createElement("style");
+style.innerHTML = `
+  @media (max-width: 768px) {
+    .paper {
+      width: 80%;
+      height: auto;
+      font-size: 14px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .paper {
+      width: 100%;
+      font-size: 12px;
+    }
+  }
+`;
+document.head.appendChild(style);

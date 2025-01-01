@@ -2,81 +2,82 @@ let highestZ = 1;
 
 class Paper {
   holdingPaper = false;
+  rotating = false;
   mouseTouchX = 0;
   mouseTouchY = 0;
-  mouseX = 0;
-  mouseY = 0;
-  prevMouseX = 0;
-  prevMouseY = 0;
-  velX = 0;
-  velY = 0;
-  rotation = Math.random() * 30 - 15;
   currentPaperX = 0;
   currentPaperY = 0;
-  rotating = false;
+  rotation = Math.random() * 30 - 15; 
 
   init(paper) {
-    document.addEventListener('mousemove', (e) => {
-      if(!this.rotating) {
-        this.mouseX = e.clientX;
-        this.mouseY = e.clientY;
-        
-        this.velX = this.mouseX - this.prevMouseX;
-        this.velY = this.mouseY - this.prevMouseY;
+    // Mouse and Touch Move Event
+    const onMove = (e) => {
+      if (!this.holdingPaper) return;
+
+      const isTouch = e.type === 'touchmove';
+      const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+      const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+      const dirX = clientX - this.mouseTouchX;
+      const dirY = clientY - this.mouseTouchY;
+
+      if (this.rotating) {
+      
+        const angle = Math.atan2(dirY, dirX);
+        this.rotation = (360 + Math.round((180 * angle) / Math.PI)) % 360;
+      } else {
+        // Drag functionality
+        this.currentPaperX += dirX;
+        this.currentPaperY += dirY;
+        this.mouseTouchX = clientX;
+        this.mouseTouchY = clientY;
       }
-        
-      const dirX = e.clientX - this.mouseTouchX;
-      const dirY = e.clientY - this.mouseTouchY;
-      const dirLength = Math.sqrt(dirX*dirX+dirY*dirY);
-      const dirNormalizedX = dirX / dirLength;
-      const dirNormalizedY = dirY / dirLength;
 
-      const angle = Math.atan2(dirNormalizedY, dirNormalizedX);
-      let degrees = 180 * angle / Math.PI;
-      degrees = (360 + Math.round(degrees)) % 360;
-      if(this.rotating) {
-        this.rotation = degrees;
-      }
+      paper.style.transform = `translate(${this.currentPaperX}px, ${this.currentPaperY}px) rotate(${this.rotation}deg)`;
+    };
 
-      if(this.holdingPaper) {
-        if(!this.rotating) {
-          this.currentPaperX += this.velX;
-          this.currentPaperY += this.velY;
-        }
-        this.prevMouseX = this.mouseX;
-        this.prevMouseY = this.mouseY;
-
-        paper.style.transform = `translateX(${this.currentPaperX}px) translateY(${this.currentPaperY}px) rotateZ(${this.rotation}deg)`;
-      }
-    })
-
-    paper.addEventListener('mousedown', (e) => {
-      if(this.holdingPaper) return; 
+    
+    const onStart = (e) => {
+      e.preventDefault();
       this.holdingPaper = true;
-      
-      paper.style.zIndex = highestZ;
-      highestZ += 1;
-      
-      if(e.button === 0) {
-        this.mouseTouchX = this.mouseX;
-        this.mouseTouchY = this.mouseY;
-        this.prevMouseX = this.mouseX;
-        this.prevMouseY = this.mouseY;
-      }
-      if(e.button === 2) {
+
+      paper.style.zIndex = ++highestZ;
+
+      const isTouch = e.type === 'touchstart';
+      this.mouseTouchX = isTouch ? e.touches[0].clientX : e.clientX;
+      this.mouseTouchY = isTouch ? e.touches[0].clientY : e.clientY;
+
+   
+      if (!isTouch && e.button === 2) {
         this.rotating = true;
       }
-    });
-    window.addEventListener('mouseup', () => {
+    };
+
+    // Mouse and Touch Up Event
+    const onEnd = () => {
       this.holdingPaper = false;
       this.rotating = false;
-    });
+    };
+
+    // Add event listeners for mouse and touch
+    paper.addEventListener('mousedown', onStart);
+    paper.addEventListener('touchstart', onStart, { passive: false });
+
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchend', onEnd);
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+
+    // Prevent context menu on right-click for rotation
+    paper.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 }
 
+//////////Paper///////
 const papers = Array.from(document.querySelectorAll('.paper'));
 
-papers.forEach(paper => {
+papers.forEach((paper) => {
   const p = new Paper();
   p.init(paper);
 });
